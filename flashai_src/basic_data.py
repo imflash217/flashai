@@ -112,12 +112,35 @@ class DataBunch():
         dl = DataLoader(self.label_list.test, vdl.batch_size, shuffle=False, drop_last=False, num_workers=vdl.num_workers)
         self.test_dl = DeviceDataLoader(dl, vdl.device, vdl.tfms, vdl.collate_fn)
 
+    def one_batch(self, ds_type: DatasetType=DatasetType.Train,
+                  detach: bool=True, denorm: bool=True, cpu: bool=True) -> Collection[Tensor]:
+        """
+        Get one batch from the dataloader of `ds_type`.
+        Optionally `detach` and `denorm`
+        """
+        dl = self.dl(ds_type)
+        w = self.num_workers
+        self.num_workers = 0
+        try:
+            x, y = next(iter(dl))
+        finally:
+            self.num_workers = w
+        if detach:
+            x, y = to_detach(x, cpu=cpu), to_detach(y, cpu=cpu)
+        norm = getattr(self, "norm", False)
+        if denorm and norm:
+            x = self.denorm(x)
+            if norm.keywords.get("do_y", False):
+                y = self.denorm(y, do_x=True)
+        return x, y
 
 
     def show_batch(self, rows: int=5, ds_type: DatasetType=DatasetType.Train, reverse: bool=False, **kwargs) -> None:
         """
         Show a batch of data in `ds_type` on a few `rows`
         """
+
+        # Grabbing one batch of data from th dataset
         x, y = self.one_batch(ds_type, True, True)
         if reverse:
             x, y = x.flip(0), y.flip(0)
@@ -129,6 +152,16 @@ class DataBunch():
 
         # grabbing items from x
         xs = [self.train_ds.x.reconstruct(grab_idx(x, i)) for i in range(n_items)]
+
+        # TODO: get rid of has_arg if possible
+        # grabbing the corresponding ys
+        if has_arg(self.train_ds.y.reconstruct, "x"):
+            ys = [self.train_ds.y.reconstruct(grab_idx(y, i), x=x) for i, x in enumerate(xs)]
+        else:
+            ys = [self.train_ds.y.reconstruct(grab_idx(y, i)) for i in range(n_items)]
+
+        self.train_ds.x.show_xys(xs, ys, **kwargs)
+
 
 
 
