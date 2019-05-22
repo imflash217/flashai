@@ -1,0 +1,131 @@
+### KEYWORDS ###
+> manipulator                   (endl)
+> scope operator                (:: operator)
+> initialize                    (give an intended value to the variable at the same time it is created)
+> input operator                (>> operator)
+> output operator               (<< operator)
+> istream                       (std::cin)
+> ostream                       (std::cout, std::cerr, std::clog)
+> equality operator             (==)
+> compound assignment operator  (+=)
+> dot operator                  (.)
+> call operator                 ( () operator )
+> character literal             (eg. 'a', 'x')
+> string literal                (eg. "wow", "man", "Hello World!")
+> Escape sequences              (eg. \n, \t, \r, \f)
+                                (carriage return: \r)
+                                (formfeed: \f)
+> list initialization           (using curly braces for initialization)
+> declaration                   (eg. #include <iostream>; using namespace std)
+> definition
+> extern                        (declaration that is also NOT definition)
+                                extern int i; // declares but don't define
+> Identifiers
+> Compound type                 (eg. refernces, pointers)
+> dereference operator          (* operator)
+
+### POINTS ###
+> All the names defined in the standard library are in "std" namespace.
+> When we use "istream" as a condition, the effect is to test the state of the stream.
+> An "istream" becomes invalid when we encounter "end-of-file" or read an invalid value.
+> A class defines a "type" along with the collection of operations that are related to that type.
+> A primary focus of the design of C++ is to make it possible to define "class types" that behave as naturally as the built-in types.
+> Conventionally, header file names are derived from the name of the class defined inside it.
+> Every "class" defines a type. The "type name" is same as the name of the "class".
+> Headers from the standard library are enclosed in angle-brackets (< >).
+> Headers that are not part of the standard library are included using double quotes (" ").
+> A "member function" is a function that is defined as part of the class.
+> A "member function" is also called as "method".
+> The "dot-operator" applies only to objects of "class" type.
+> C++ is a "statically typed language" i.e. "type" checking is done at the compile-time not run-time (as opposed to Smalltalk, Python).
+> The arithmetic types  : integral types
+                        : floating-point types
+> "Unicode" is a standard for representing characters used in esentially any natural language.
+> "long double" is often used as a way to implement special-purpose floating-point hardware.
+> "float" and "double" type typically yield 7 and 16 significant digits.
+> Except for "bool" and extended-chracter types; an integral type may be "signed" or "unsigned" only.
+> By default, "int", "short", "long", "long long" are all "signed".
+> Use "unsigned" before the type to obtain an unsigned-type.
+> Unlike the other integer-types, there are three character types: "char", "signed char", "unsigned char"
+> "char" != "signed char"
+> Which of the two character representation ("signed char", "unsigned char") is equivalent to "char" depends on the compiler.
+> The standard doesn't define how "signed" types are represented, but does specify that the range should be evenly distributed b/w +ve and -ve values.
+> "short" is usaully too small.
+> "long" often has the same size as "int".
+> If the data values are larger than the minimum guranteed size of "int", use "long long"
+> Use "double" instead of "float" for floating-point number arithmetic.
+> Type-conversions happen automatically when we use an object of one type where an object of another type is expected.
+> If we assign an out-of-range value to an object of "unsigned" type, the result is the remainder of the value modulo the number of values the target-type can hold.
+> If we assign an out-of-range value to an object of "signed" type, the result is UNDEFINED (might work/crash/garbage-values).
+> If we use both "unsigned" and "int" values in an arithmetic expression, the "int" value is usually converted to "unsigned".
+> Don't mix "signed" and "unsigned" types.
+> We can write integer literals using decimal, octal or hexadecimal notation.
+> Integer literal that begins with 0 are interpreted as "octal".
+> Integer literal that begins with 0x (or) 0X are interpreted as "hexadecimal".
+> By default, decimal literals are signed, whereas octal/hexadecimal literals can either be signed or unsigned types.
+> A decimal literal has the types of "int", "long", "long long".
+> Octal & Hexadecimal literals has the types of "int", "unsigned int", "long", "unsigned long", "long long", "unsigned long long".
+> There are no literals of type "short".
+> Although, integer literals may be stored in signed types, technically speaking, the value of decimal literal is never a -ve number.
+> By default, floating-point literals are of type "double".
+> The type of string literal is "array" of constant "chars".
+> The compiler appends a null charcater ('\0') to every "string literal". Thus, the actual size of the string literal is one more than its apparent size.
+> NOTE: 'A' represents only character A.
+      : "A" represnts character A and NULL-character.
+> Two string-literals that appear adjacent to one other and are separated only by "whitespaces", "tabs", or "newlines" are concatenated into a single literal.
+> Use uppercase L to write "long" literal, b'coz lowercase l is often confused with 1.
+> C++ prohrammers tend to refer to variables as "variables" or "objects" interchangebly.
+> Most generally, an object is a region of memory that can hold data and has a type.
+> "Initialization" and "assignment" are two completely different operations in C++.
+> "Initialization" happens when a variable is given a value when it is created.
+> "Assignment" obliterates the current value of the variable and replaces with a new value.
+> The compiler will not let us "list initialize" variables of built-in type if the initializer might lead to loss of information.
+> The defualt value of a variable that is not explitly initialized depends on where it is defined.
+> Variables defined outside any function body are initialized to 0 (zero).
+> Variables of built-in type defined inside a function are "uninitialized".
+> To allow programs to be written in logical parts, C++ supports "separate compilation".
+> "Separate Compilation" lets us split programs into several files, which can be compiled separately.
+> To support "separate compilation" C++ distinguishes b/w "definition" and "declaration".
+> A "declaration" makes a name known to the program. A variable delaration defines the type, name of a variable.
+> A "definition" creates associated entity.
+> A variable definition is declaration.
+> A file that wants to use a name defined elsewhere, includes a "declaration" for that name.
+> An "extern" that has an initializer is a "definition".
+> It is an error to provide an initializer on an "extern" inside a function.
+> Variables must be "defined" exaclty once but can be "declared" multiple times.
+> To use a variable in multiple files, requires "declaration" in every file. But there must be exactly one-and-only-one "definition".
+> Other files that use the same variable must "declare" that variable but not "define" that variable again.
+> "Identifiers" must begin with a letter or underscore.
+> "Identifiers" we define in our own programs may NOT contain TWO consecutive underscores (__).
+> "Identifiers" we define in our own programs may NOT begin with underscore followed by UPPERCASE letter (_A, _1).
+> "Identifiers" defined outside a function may NOT begin with underscore.
+> class names usually begin with Uppercase letter.
+> hyphen (-) is NOT allowed to be an identifier name.
+> TIP: Define variable where it is used first.
+> Names defined in a scope can also be redefined in an inner scope.
+> The global scope has no name. Hence, when the scope operator has an empty left-hand-side, it is a request to fetch the right-hand-side name from the global scope (eg  ::varName)
+> It is almost always a BAD idea to define a local variable with the same name as a global variable.
+> A "compound type" is a type that is defined in terms of another type. (eg. references, pointers)
+> A "reference" defines an alternative name for an object.
+> A reference type "refers to" another type.
+> A "reference" must be INITIALIZED.
+> Once initialized, a reference remains bound to he initial object. There is no way to re-bind a refernce to another object.
+> A "reference" is not an object. Hence, they don't have any address.
+> A "reference" is just another name for an already existing object.
+> After a reference has beed defined, all operations on the reference are actually operations on the object to which the reference is bound.
+> A "reference" is basically an alias for the object to which it is bound.
+> Because "reference" are not object, we may NOT define reference to a reference.
+> The type of the reference and the type of the object to which it refers must be the same.
+> A reference can be bound only to an object.
+> A reference CANNOT be bound to a literal (or) output of a more general expression.
+> "pointer" is an object in its own right.
+> Pointers can be assigned and copied.
+> A single pointer can point to several different objects in its lifetime.
+> Unlike a reference, a pointer need not be initialized at the time of its definition.
+> As reference don't have address, we cannot define a pointer to a reference.
+> The types of the pointer and the object must match.
+> We can use the dereference operator (* operator) to access the object to which a pointer points.
+> A "reference" is not an object.
+> Assignment make the pointer point to a different object.
+> So long as the pointer has a valid value, it can be used in a condition.
+>
