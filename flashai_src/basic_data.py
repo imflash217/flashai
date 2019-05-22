@@ -54,7 +54,7 @@ class DataBunch():
     def __getattr__(self, k: int) -> Any:
         return getattr(self.train_dl, k)
 
-    def __setattr__(self, data:Any):
+    def __setattr__(self, data: Any):
         self.__dict__.update(data)
 
     def dl(self, ds_type: DatasetType=DatasetType.Valid) -> DeviceDataLoader:
@@ -70,6 +70,65 @@ class DataBunch():
 
     @property
     def dls(self) -> List[DeviceDataLoader]:
+        """
+        Returns a list of all `DeviceDataLoaders`.
+        If you need a specific `DeviceDataLoader`, access via the relevant property (`train_dl`, `valid_dl`, etc)
+        as the index if DLs in this list is not guranteed to remain constant.
+        """
+
+        result = [self.train_dl, self.fix_dl, self.single_dl]
+
+        # Preserve the original ordering of Train, Valid, Fix, Single, Test data loaders
+        if self.valid_dl:
+            result.insert(1, self.valid_dl)
+        return result if not self.test_dl else result + [self.test_dl]
+
+    def add_tfm(self, tfm: Callable) -> None:
+        for dl in self.dls:
+            dl.add_tfm(tfm)
+
+    def remove_tfm(self, tfm: Callable) -> None:
+        for dl in self.dls:
+            dl.remove_tfm(tfm)
+
+    def save(self, file: PathLikeOrBinaryStream="data_save.pkl") -> None:
+        """
+        Save the `DataBunch` in `self.path/file`.
+        `file` can be file-like (file or binary)
+        """
+
+        if not getattr(self, 'label_list', False):
+            warn("Serializing the `DataBunch` only works when you created it using the DataBlock API")
+            return
+        try_save(self.lable_list, self.path, file)
+
+    def add_test(self, items: Iterator, label: Any=None) -> None:
+        """
+        Add the `items` as a test set.
+        Pass along `label` otherwise lable them with `EmptyLabel`
+        """
+        self.label_list.add_test(items, label=label)
+        vdl = self.valid_dl
+        dl = DataLoader(self.label_list.test, vdl.batch_size, shuffle=False, drop_last=False, num_workers=vdl.num_workers)
+        self.test_dl = DeviceDataLoader(dl, vdl.device, vdl.tfms, vdl.collate_fn)
+
+
+
+    def show_batch(self, rows: int=5, ds_type: DatasetType=DatasetType.Train, reverse: bool=False, **kwargs) -> None:
+        """
+        Show a batch of data in `ds_type` on a few `rows`
+        """
+        x, y = self.one_batch(ds_type, True, True)
+        if reverse:
+            x, y = x.flip(0), y.flip(0)
+        n_items = rows**2 if self.train_ds.x._square_show else rows
+
+        # checking if the requested number of items exist in the batch
+        if self.dl(ds_type).batch_size < n_items:
+            n_items = self.dl(ds_type).batch_size
+
+        # grabbing items from x
+        xs = [self.train_ds.x.reconstruct(grab_idx(x, i)) for i in range(n_items)]
 
 
 
