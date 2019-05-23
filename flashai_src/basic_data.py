@@ -134,6 +134,14 @@ class DataBunch():
                 y = self.denorm(y, do_x=True)
         return x, y
 
+    def one_item(self, item, detach: bool=False, denorm: bool=False, cpu: bool=False):
+        """
+        Get one `item` into a batch.
+        Optionally `detach` and `denorm`
+        """
+        ds = self.single_ds
+        with ds.set_item(item):
+            return self.one_batch(ds_type=DatasetType.Single, detach=detach, denorm=denorm, cpu=cpu)
 
     def show_batch(self, rows: int=5, ds_type: DatasetType=DatasetType.Train, reverse: bool=False, **kwargs) -> None:
         """
@@ -161,6 +169,70 @@ class DataBunch():
             ys = [self.train_ds.y.reconstruct(grab_idx(y, i)) for i in range(n_items)]
 
         self.train_ds.x.show_xys(xs, ys, **kwargs)
+
+
+    def sanity_check(self):
+        """
+        Check the underlying data in the training set, whether it can be properly loaded or not
+        """
+        final_message = "You can deactivate this message by passing `no_check=True`"
+
+        # Checking whether the train_ds or train_dl has items in it or whether it is empty or corrupted
+        if not hasattr(self.train_ds, 'items') or len(self.train_ds.items) == 0 or not hasattr(self.train_dl, 'batch_sampler'):
+            return
+        if len(self.train_dl) == 0:
+            warn(f"Your training dataloader is EMPTY, you have only {len(self.train_dl.dataset)} items in the training set."
+                 f"Your batchsize is {self.train_dl.batch_size}, you should lower it.")
+            print(final_message)
+            return
+        idx = next(iter(self.train_dl.batch_sampler))
+        samples, fails = [], []
+
+        # Collecting the samples from the training dataset. Indexing sucessful/failed attempts
+        for i in idx:
+            try:
+                samples.append(self.train_dl.dataset[i])
+            except:
+                fails.append(i)
+
+        # Handling the cases when one or more fails while retrieving samples from the dataset
+        if len(fails) > 0:
+            warn_msg = f"There seems to be something wrong with your dataset. For example, in the first batch we can't access "
+            if len(fails) == len(idx):
+                warn_msg += f"any element of self.train_ds\nTried: {show_some(idx)}"
+            else:
+                warn_msg += f"these elements in self.train_ds:\n{show_some(fails)}"
+            warn(warn_msg)
+            print(final_message)
+            return
+
+        try:
+            batch = self.collate_fn(samples)
+        except:
+            message = f"Failed to collate samples of your dataset together in a batch"
+            try:
+                shapes = [[o[i].data.shape for o in samples] for i in range(2)]
+                message += f"\nShapes of the inputs/targets: \n{shapes}"
+            except:
+                pass
+            warn(message)
+            print(final_message)
+
+    def load_data(path: PathOrStr, file: PathLikeOrBinaryStream="data_save.pkl",
+                  bs: int=64, val_bs: int=None, num_workers: int=defaults.cpus,
+                  dl_tfms: Optional[Collections[Callable]]=None, device: torch.device=None,
+                  collate_fn: Callable=data_collate, no_check: bool=False, **kwargs) -> DataBunch:
+        """
+        Loads a saved `DataBunch` from `path/file`.
+        `file` can be file-like (file or buffer)
+        """
+        source = Path(path)/file if is_pathlike(file) else file
+        ll = torch.load(source, map_location="cpu") if defaults.device == torch.device("cpu") else torch.load(source)
+        return ll.databunch(path=path, bs=bs, val_bs=val_bs, num_workers=num_workers, dl_tfms=dl_tfms,
+                            device=device, collate_fn=collate_fn, no_check=no_check, **kwargs)
+
+
+
 
 
 
