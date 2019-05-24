@@ -3,7 +3,9 @@
 from torch.utils.data.dataloader import default_collate
 
 class DataBunch():
-    """Bind `train_dl`, `valid_dl`, and `test_dl` in a data object."""
+    """
+    Bind `train_dl`, `valid_dl`, and `test_dl` in a data object.
+    """
 
     def __init__(self, train_dl: DataLoader, valid_dl: DataLoader,
                     fix_dl: DataLoader=None, test_dl: Optional[DataLoader]=None,
@@ -223,8 +225,12 @@ class DataBunch():
                   dl_tfms: Optional[Collections[Callable]]=None, device: torch.device=None,
                   collate_fn: Callable=data_collate, no_check: bool=False, **kwargs) -> DataBunch:
         """
-        Loads a saved `DataBunch` from `path/file`.
-        `file` can be file-like (file or buffer)
+        Loads a saved `DataBunch` from `path/file`. `file` can be file-like (file or buffer)
+
+        IMPORTANT: The arguments you passed when you created your first `DataBunch` aren't saved,
+        so you should pass them here if you don't want the defaults.
+        This is to allow you to easily create a new `DatBunch` with a different batch size for instance.
+        You will also need to reapply any normalization you might have done in your original `DataBunch`.
         """
         source = Path(path)/file if is_pathlike(file) else file
         ll = torch.load(source, map_location="cpu") if defaults.device == torch.device("cpu") else torch.load(source)
