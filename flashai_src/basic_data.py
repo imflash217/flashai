@@ -1,6 +1,145 @@
 """`flashai.data` loads and manages datasets with `DataBunch`"""
 
+__author__ = "@imflash217"
+__copyright__ = "flashAI, @2019"
+
+
+from .torch_core import *
 from torch.utils.data.dataloader import default_collate
+
+DatasetType = Enum("DatasetType", "Train Valid Test Single Fix")
+__all__ = ["DataBunch", "DeviceDataLoader", "DatasetType","load_data"]
+
+old_dl_init = torch.utils.data.DataLoader.__init__
+
+def intercept_args(self, dataset, batch_size=1, shuffle=False, sampler=None, batch_sampler=None, num_workers=0,
+                   collate_fn=default_collate, pin_memory=True, drop_last=False, timeout=0, worker_init_fn=None):
+    self.init_kwargs = {"batch_size": batch_size,
+                        "shuffle": shuffle,
+                        "sampler": sampler,
+                        "batch_sampler": batch_sampler,
+                        "num_workers": num_workers,
+                        "collate_fn": collate_fn,
+                        "pin_memory": pin_memory,
+                        "drop_last": drop_last,
+                        "timeout": timeout,
+                        "worker_init_fn": worker_init_fn,
+                        }
+    old_dl_init(self, dataset, **self.init_kwargs)
+
+torch.utils.data.DaataLoader.__init__ = intercept_args
+
+def DataLoader___getattr__(dl, k: str) -> Any:
+    return getattr(dl.dataset, k)
+
+DataLoader.__getattr__ = DataLoader___getattr__
+
+def DataLoader___setstate__(dl, data: Any):
+    dl.__dict__.update(data)
+
+DataLoader.__setstate__ = DataLoader___setstate__
+
+
+@dataclass
+class DeviceDataLoader():
+    """
+    Binds a `DataLoader` to a `torch.device`
+    """
+
+    dl: DataLoader
+    device: torch.device
+    tfms: List[Callable]=None
+    collate_fn: Callable=data_collate
+
+    def __post_init__(self):
+        self.dl.collate_fn = self.collate_fn
+        self.tfms = listify(self.tfms)
+
+    def __len__(self) -> int:
+        return len(self.dl)
+
+    def __getattr__(self, k: str) -> Any:
+        return getattr(self.dl, k)
+
+    def __setstate__(self, data: Any):
+        self.__dict__.update(data)
+
+    @property
+    def batch_size(self):
+        return self.dl.batch_size
+
+    @batch_size.setter
+    def batch_size(self, new_bs):
+        """
+        property setter to change the batch_size
+        """
+        new_kwargs = {**self.dl.init_kwargs, "batch_size": new_bs, "collate_fn": self.collate_fn}
+        self.dl = self.dl.__class__(self.dl.dataset, **new_kwargs)
+        if hasattr(self.dl.dataset, "bs"):
+            self.dl.dataset.bs = new_bs
+
+    @property
+    def num_workers(self):
+        return self.dl.num_workers
+
+    @num_workers.setter
+    def num_workers(self, new_num_workers):
+        self.dl.num_workers = new_num_workers
+
+    def add_tfm(self, tfm: Callable) -> None:
+        """
+        Add `tfm` to `self.tfm`
+        """
+        self.tfms.append(tfm)
+
+    def remove_tfm(self, tfm: Callable) -> None:
+        """
+        Remove `tfm` from `self.tfms`
+        """
+        if tfm in self.tfms:
+            self.tfms.remove(tfm)
+
+    def new(self, **kwargs):
+        """
+        Create a new copy of `self` with `kwargs`  replacing current values
+        """
+        new_kwargs = {**self.dl.init_kwargs, **kwargs}
+        return DevicedataLoader(self.dl.__class__(self.dl.dataset, **new_kwargs),
+                                self.device, self.tfms, self.collate_fn)
+
+    def proc_batch(self, b: Tensor) -> Tensor:
+        """
+        Process batch `b` of `Tensor` type with the available `tfms`
+        """
+        b = to_device(b, self.device)
+        for tfm in listify(self.tfms):
+            b = tfm(b)
+        return b
+
+    def __iter__(self):
+        """
+        Process and returns items from `DataLoader`
+        """
+        for b in self.dl:
+            yield self.proc_batch(b)
+
+    @classmethod
+    def create(cls, dataset: Dataset, bs: int=64, shuffle: bool=False, device: torch.device=defaults.device,
+               tfms: Collection[Callable]=tfms, num_workers: int=defaults.cpus, collate_fn: Callable=data_collate, **kwargs: Any):
+        """
+        Factory Method to create a `DeviceDataLoader`from `dataset` with `bs` and `shuffle`: process using `num_workers`.
+
+        `collate_fn: Callable`          --- Will be used to put the samples together in one batch (by default it grabs ther data attribute).
+        `shuffle: bool`                 --- Means the DataLoader will take the samples randomly if that flag is set to `True` otherwise in the right order
+        `tfms: Collection[Callable]`    --- Passed to the `init` method
+        `kwargs: Any`                   --- Passed to the Pytorch `DataLoader` class initialization
+        """
+
+        return cls(DataLoader(dataset, batch_size=bs, shuffle=shuffle, num_workers=num_workers, **kwargs),
+                   device=device, tfms=tfms, collate_fn=collate_fn)
+
+
+###-------------------------------------------------------------------------------------------------------------------------------
 
 class DataBunch():
     """
@@ -107,7 +246,7 @@ class DataBunch():
     def add_test(self, items: Iterator, label: Any=None) -> None:
         """
         Add the `items` as a test set.
-        Pass along `label` otherwise lable them with `EmptyLabel`
+        Pass along `label` otherwise label them with `EmptyLabel`
         """
         self.label_list.add_test(items, label=label)
         vdl = self.valid_dl
@@ -172,6 +311,14 @@ class DataBunch():
 
         self.train_ds.x.show_xys(xs, ys, **kwargs)
 
+    def export(self, file: PathLikeOrBinaryStream="export.pkl"):
+        """
+        Export the minimal state of `self` for inference in `self.path/file`. `file` can be file-like (file or buffer)
+        """
+        xtra = dict(normalize=self.norm.keywords) if getattr(self, "norm", False) else {}
+        try_save(self.valid_ds.get_state(**xtra), self.path, file)
+
+
 
     def sanity_check(self):
         """
@@ -220,32 +367,24 @@ class DataBunch():
             warn(message)
             print(final_message)
 
-    def load_data(path: PathOrStr, file: PathLikeOrBinaryStream="data_save.pkl",
-                  bs: int=64, val_bs: int=None, num_workers: int=defaults.cpus,
-                  dl_tfms: Optional[Collections[Callable]]=None, device: torch.device=None,
-                  collate_fn: Callable=data_collate, no_check: bool=False, **kwargs) -> DataBunch:
-        """
-        Loads a saved `DataBunch` from `path/file`. `file` can be file-like (file or buffer)
+###-------------------------------------------------------------------------------------------------------------------------------
 
-        IMPORTANT: The arguments you passed when you created your first `DataBunch` aren't saved,
-        so you should pass them here if you don't want the defaults.
-        This is to allow you to easily create a new `DatBunch` with a different batch size for instance.
-        You will also need to reapply any normalization you might have done in your original `DataBunch`.
-        """
-        source = Path(path)/file if is_pathlike(file) else file
-        ll = torch.load(source, map_location="cpu") if defaults.device == torch.device("cpu") else torch.load(source)
-        return ll.databunch(path=path, bs=bs, val_bs=val_bs, num_workers=num_workers, dl_tfms=dl_tfms,
-                            device=device, collate_fn=collate_fn, no_check=no_check, **kwargs)
+def load_data(path: PathOrStr, file: PathLikeOrBinaryStream="data_save.pkl",
+              bs: int=64, val_bs: int=None, num_workers: int=defaults.cpus,
+              dl_tfms: Optional[Collections[Callable]]=None, device: torch.device=None,
+              collate_fn: Callable=data_collate, no_check: bool=False, **kwargs) -> DataBunch:
+    """
+    Loads a saved `DataBunch` from `path/file`. `file` can be file-like (file or buffer)
 
-
-
-
-
-
-
-
-
-
+    IMPORTANT: The arguments you passed when you created your first `DataBunch` aren't saved,
+    so you should pass them here if you don't want the defaults.
+    This is to allow you to easily create a new `DatBunch` with a different batch size for instance.
+    You will also need to reapply any normalization you might have done in your original `DataBunch`.
+    """
+    source = Path(path)/file if is_pathlike(file) else file
+    ll = torch.load(source, map_location="cpu") if defaults.device == torch.device("cpu") else torch.load(source)
+    return ll.databunch(path=path, bs=bs, valbs=val_bs, num_workers=num_workers, dl_tfms=dl_tfms,
+                        device=device, collate_fn=collate_fn, no_check=no_check, **kwargs)
 
 
 
